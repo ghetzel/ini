@@ -21,6 +21,8 @@ import (
 	"time"
 )
 
+var EnableStringInterpolation = true
+
 // Key represents a key under a section.
 type Key struct {
 	s               *Section
@@ -51,30 +53,34 @@ func (k *Key) String() string {
 	if k.s.f.ValueMapper != nil {
 		val = k.s.f.ValueMapper(val)
 	}
-	if strings.Index(val, "%") == -1 {
-		return val
-	}
 
-	for i := 0; i < _DEPTH_VALUES; i++ {
-		vr := varPattern.FindString(val)
-		if len(vr) == 0 {
-			break
+	if EnableStringInterpolation {
+		if strings.Index(val, "%") == -1 {
+			return val
 		}
 
-		// Take off leading '%(' and trailing ')s'.
-		noption := strings.TrimLeft(vr, "%(")
-		noption = strings.TrimRight(noption, ")s")
+		for i := 0; i < _DEPTH_VALUES; i++ {
+			vr := varPattern.FindString(val)
+			if len(vr) == 0 {
+				break
+			}
 
-		// Search in the same section.
-		nk, err := k.s.GetKey(noption)
-		if err != nil {
-			// Search again in default section.
-			nk, _ = k.s.f.Section("").GetKey(noption)
+			// Take off leading '%(' and trailing ')s'.
+			noption := strings.TrimLeft(vr, "%(")
+			noption = strings.TrimRight(noption, ")s")
+
+			// Search in the same section.
+			nk, err := k.s.GetKey(noption)
+			if err != nil {
+				// Search again in default section.
+				nk, _ = k.s.f.Section("").GetKey(noption)
+			}
+
+			// Substitute by new value and take off leading '%(' and trailing ')s'.
+			val = strings.Replace(val, vr, nk.value, -1)
 		}
-
-		// Substitute by new value and take off leading '%(' and trailing ')s'.
-		val = strings.Replace(val, vr, nk.value, -1)
 	}
+
 	return val
 }
 
